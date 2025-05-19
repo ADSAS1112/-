@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>张氏家风传承</title>
+    <style>
+        body { font-family: "宋体", serif; margin: 0; padding: 0; background: #f8f5f0; }
+        .container { display: flex; min-height: 100vh; }
+        .sidebar { width: 30%; max-width: 180px; background: #e9e3d7; padding: 10px; border-right: 1px solid #d4c9b7; }
+        .main-content { flex: 1; padding: 10px; }
+        .panel { background: white; border-radius: 8px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        h2 { color: #8B0000; margin-top: 0; }
+        h3 { color: #8B4513; }
+        button { background: #8B0000; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin: 5px 0; width: 100%; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn-group button { flex: 1; }
+        .stat { display: flex; justify-content: space-between; margin-bottom: 5px; padding: 5px; background: #f5f0e5; border-radius: 3px; }
+        .progress { height: 10px; background: #eee; border-radius: 5px; margin: 5px 0 15px; }
+        .progress-bar { height: 100%; border-radius: 5px; background: #8B0000; }
+        .alert { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .special { background: #d1ecf1; color: #0c5460; }
+        .time-alert { background: #f8d7da; color: #721c24; animation: pulse 1s infinite; }
+        .task { border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .badge { background: #8B0000; color: white; padding: 2px 5px; border-radius: 50%; font-size: 0.8em; margin-left: 5px; }
+        .sidebar h3 { color: #8B0000; margin-top: 0; }
+        .inventory-item { display: flex; justify-content: space-between; margin-bottom: 5px; }
+        .stat-change { animation: pulse 0.5s ease-in-out; }
+        .achievement-unlock { animation: glow 1s ease-in-out infinite alternate; }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes glow {
+            from { box-shadow: 0 0 5px #8B0000; }
+            to { box-shadow: 0 0 20px #8B0000; }
+        }
+        
+        @keyframes time-pulse {
+            0% { background-color: #f8d7da; }
+            50% { background-color: #ffcccc; }
+            100% { background-color: #f8d7da; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 侧边栏 -->
+        <div class="sidebar">
+            <h3>家族状态</h3>
+            
+            <div class="stat">
+                <span>银元</span>
+                <span id="sidebar-silver">8</span>
+            </div>
+            
+            <div class="stat">
+                <span>孝心值</span>
+                <div style="width: 100%">
+                    <div id="sidebar-filial">50</div>
+                    <div class="progress">
+                        <div id="sidebar-filialBar" class="progress-bar" style="width: 50%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat" id="time-display">
+                <span>剩余时间</span>
+                <span id="sidebar-time">5:00</span>
+            </div>
+            
+            <h3>物品</h3>
+            <div id="inventory">
+                <div class="inventory-item">
+                    <span>大米</span>
+                    <span id="sidebar-rice">0斤</span>
+                </div>
+                <div class="inventory-item">
+                    <span>鱼</span>
+                    <span id="sidebar-fish">0条</span>
+                </div>
+                <div class="inventory-item">
+                    <span>手工艺品</span>
+                    <span id="sidebar-craft">0件</span>
+                </div>
+            </div>
+            
+            <h3>成就</h3>
+            <div id="achievements">
+                <div class="inventory-item" id="achievement-1">
+                    <span>初露锋芒</span>
+                    <span id="achievement-1-status">未解锁</span>
+                </div>
+                <div class="inventory-item" id="achievement-2">
+                    <span>家族楷模</span>
+                    <span id="achievement-2-status">未解锁</span>
+                </div>
+                <div class="inventory-item" id="achievement-3">
+                    <span>德高望重</span>
+                    <span id="achievement-3-status">未解锁</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主内容区 -->
+        <div class="main-content">
+            <div id="story">
+                <div id="passage">
+                    <div class="panel">
+                        <h2>张氏家风</h2>
+                        <p>你将在5分钟内管理家族事务，积累孝心值和财富。</p>
+                        <button onclick="startGame()">开始传承之旅</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 游戏状态
+        const state = {
+            silver: 8,
+            filial: 50,
+            scene: "start",
+            tasks: [],
+            lastRandomEvent: 0,
+            days: 0,
+            inventory: {
+                rice: 0,
+                fish: 0,
+                craft: 3 // 初始3件手工艺品
+            },
+            achievements: {
+                "achievement-1": false, // 孝心值达到70
+                "achievement-2": false, // 孝心值达到100
+                "achievement-3": false  // 孝心值达到150
+            },
+            unlockedFeatures: [],
+            gameTime: 5 * 60, // 5分钟，以秒为单位
+            gameStarted: false,
+            timer: null
+        };
+
+        // 孝心值阈值和对应的奖励
+        const filialThresholds = [
+            { value: 70, reward: "解锁宗祠扩建功能", effect: () => state.unlockedFeatures.push("ancestor-hall") },
+            { value: 100, reward: "获得祖传秘方", effect: () => { state.inventory.craft += 5; state.silver += 10; } },
+            { value: 150, reward: "家族声誉提升", effect: () => { state.silver += 20; state.filial += 10; } }
+        ];
+
+        // 数值变化动画
+        function animateValue(elementId, start, end, duration) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+            
+            const range = end - start;
+            const minTimer = 50;
+            let stepTime = Math.abs(Math.floor(duration / range));
+            
+            stepTime = Math.max(stepTime, minTimer);
+            
+            let startTime = new Date().getTime();
+            let endTime = startTime + duration;
+            let timer;
+            
+            function run() {
+                let now = new Date().getTime();
+                let remaining = Math.max((endTime - now) / duration, 0);
+                let value = Math.round(end - (remaining * range));
+                element.textContent = value;
+                
+                if (value == end) {
+                    clearInterval(timer);
+                }
+            }
+            
+            timer = setInterval(run, stepTime);
+            run();
+        }
+
+        // 格式化时间显示
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        // 更新计时器
+        function updateTimer() {
+            const timeDisplay = document.getElementById("sidebar-time");
+            if (!timeDisplay) return;
+            
+            state.gameTime--;
+            timeDisplay.textContent = formatTime(state.gameTime);
+            
+            // 时间少于1分钟时显示警告
+            if (state.gameTime <= 60) {
+                document.getElementById("time-display").classList.add("time-alert");
+            }
+            
+            // 时间结束
+            if (state.gameTime <= 0) {
+                clearInterval(state.timer);
+                showEnding();
+            }
+        }
+
+        // 检查孝心值阈值
+        function checkFilialThresholds() {
+            let triggered = false;
+            
+            filialThresholds.forEach(threshold => {
+                if (state.filial >= threshold.value && !state.achievements[`achievement-${threshold.value/50}`]) {
+                    state.achievements[`achievement-${threshold.value/50}`] = true;
+                    threshold.effect();
+                    
+                    // 显示特殊事件提示
+                    showAlert("special", `🎉 恭喜！孝心值达到${threshold.value}！<br>奖励：${threshold.reward}`);
+                    
+                    // 更新成就UI
+                    updateAchievements();
+                    
+                    triggered = true;
+                }
+            });
+            
+            return triggered;
+        }
+
+        // 更新成就UI
+        function updateAchievements() {
+            for (const [key, value] of Object.entries(state.achievements)) {
+                const statusEl = document.getElementById(`${key}-status`);
+                const achievementEl = document.getElementById(key);
+                
+                if (statusEl && achievementEl && value) {
+                    statusEl.textContent = "已解锁";
+                    statusEl.className = "success";
+                    achievementEl.className = "inventory-item achievement-unlock";
+                    
+                    // 3秒后移除发光效果
+                    setTimeout(() => {
+                        achievementEl.classList.remove("achievement-unlock");
+                    }, 3000);
+                }
+            }
+        }
+
+        // 更新UI
+        function updateUI() {
+            // 更新侧边栏数值（使用动画）
+            animateValue("sidebar-silver", parseInt(document.getElementById("sidebar-silver").textContent || state.silver), state.silver, 500);
+            animateValue("sidebar-filial", parseInt(document.getElementById("sidebar-filial").textContent || state.filial), state.filial, 500);
+            document.getElementById("sidebar-filialBar").style.width = `${state.filial}%`;
+            
+            // 更新物品栏
+            document.getElementById("sidebar-rice").textContent = `${state.inventory.rice}斤`;
+            document.getElementById("sidebar-fish").textContent = `${state.inventory.fish}条`;
+            document.getElementById("sidebar-craft").textContent = `${state.inventory.craft}件`;
+            
+            // 添加数值变化动画效果
+            const silverEl = document.getElementById("sidebar-silver");
+            const filialEl = document.getElementById("sidebar-filial");
+            
+            if (silverEl) silverEl.classList.add("stat-change");
+            if (filialEl) filialEl.classList.add("stat-change");
+            
+            setTimeout(() => {
+                if (silverEl) silverEl.classList.remove("stat-change");
+                if (filialEl) filialEl.classList.remove("stat-change");
+            }, 500);
+            
+            // 检查孝心值阈值
+            checkFilialThresholds();
+        }
+
+        // 场景切换
+        function goto(scene) {
+            if (!state.gameStarted) return;
+            
+            state.scene = scene;
+            const passageDiv = document.getElementById("passage");
+            
+            // 每天增加随机事件概率
+            state.days++;
+            if (state.days - state.lastRandomEvent > 2 && Math.random() < 0.3) {
+                triggerRandomEvent();
+            }
+            
+            switch(scene) {
+                case "MainScene":
+                    renderMainScene(passageDiv);
+                    break;
+                    
+                case "kitchen":
+                    renderKitchen(passageDiv);
+                    break;
+                    
+                case "market":
+                    renderMarket(passageDiv);
+                    break;
+                    
+                case "tasks":
+                    renderTasks(passageDiv);
+                    break;
+                    
+                case "ancestor-hall":
+                    renderAncestorHall(passageDiv);
+                    break;
+            }
+        }
+
+        // 开始游戏
+        function startGame() {
+            state.gameStarted = true;
+            state.timer = setInterval(updateTimer, 1000);
+            goto("MainScene");
+        }
+
+        // 显示结局
+        function showEnding() {
+            const passageDiv = document.getElementById("passage");
+            let endingHtml = "";
+            
+            // 根据孝心值确定结局
+            if (state.filial >= 150) {
+                endingHtml = `
+                    <div class="panel">
+                        <h2>完美结局：德高望重</h2>
+                        <p>你的孝心感天动地，家族声誉达到顶峰。你成功传承了优良家风，成为当地的楷模。</p>
+                        <p>最终评价：</p>
+                        <ul>
+                            <li>孝心值：${state.filial}</li>
+                            <li>银元：${state.silver}</li>
+                            <li>解锁成就：全部3项</li>
+                        </ul>
+                        <button onclick="resetGame()">重新开始</button>
+                    </div>
+                `;
+            } else if (state.filial >= 100) {
+                endingHtml = `
+                    <div class="panel">
+                        <h2>良好结局：家族楷模</h2>
+                        <p>你以孝为先，家族和睦兴旺。你的行为为后代树立了榜样，家风得以传承。</p>
+                        <p>最终评价：</p>
+                        <ul>
+                            <li>孝心值：${state.filial}</li>
+                            <li>银元：${state.silver}</li>
+                            <li>解锁成就：2项</li>
+                        </ul>
+                        <button onclick="resetGame()">重新开始</button>
+                    </div>
+                `;
+            } else if (state.filial >= 70) {
+                endingHtml = `
+                    <div class="panel">
+                        <h2>普通结局：初露锋芒</h2>
+                        <p>你已初步展现孝心，家族稳步发展。继续努力，定能光大祖业。</p>
+                        <p>最终评价：</p>
+                        <ul>
+                            <li>孝心值：${state.filial}</li>
+                            <li>银元：${state.silver}</li>
+                            <li>解锁成就：1项</li>
+                        </ul>
+                        <button onclick="resetGame()">重新开始</button>
+                    </div>
+                `;
+            } else {
+                endingHtml = `
+                    <div class="panel">
+                        <h2>遗憾结局：未尽孝道</h2>
+                        <p>时间有限，你未能充分展现孝心。家族发展受到影响，需更加努力。</p>
+                        <p>最终评价：</p>
+                        <ul>
+                            <li>孝心值：${state.filial}</li>
+                            <li>银元：${state.silver}</li>
+                            <li>解锁成就：0项</li>
+                        </ul>
+                        <button onclick="resetGame()">重新开始</button>
+                    </div>
+                `;
+            }
+            
+            passageDiv.innerHTML = endingHtml;
+        }
+
+        // 重置游戏
+        function resetGame() {
+            // 重置状态
+            state.silver = 8;
+            state.filial = 50;
+            state.scene = "start";
+            state.tasks = [];
+            state.lastRandomEvent = 0;
+            state.days = 0;
+            state.inventory = {
+                rice: 0,
+                fish: 0,
+                craft: 3
+            };
+            state.achievements = {
+                "achievement-1": false,
+                "achievement-2": false,
+                "achievement-3": false
+            };
+            state.unlockedFeatures = [];
+            state.gameTime = 5 * 60;
+            state.gameStarted = false;
+            
+            // 重置UI
+            clearInterval(state.timer);
+            document.getElementById("sidebar-time").textContent = "5:00";
+            document.getElementById("time-display").classList.remove("time-alert");
+            updateUI();
+            
+            // 重置成就显示
+            for (const key of Object.keys(state.achievements)) {
+                const statusEl = document.getElementById(`${key}-status`);
+                if (statusEl) {
+                    statusEl.textContent = "未解锁";
+                    statusEl.className = "";
+                }
+            }
+            
+            // 显示开始界面
+            const passageDiv = document.getElementById("passage");
+            passageDiv.innerHTML = `
+                <div class="panel">
+                    <h2>第1代：瓯江家风</h2>
+                    <p>你将在5分钟内管理家族事务，积累孝心值和财富。</p>
+                    <button onclick="startGame()">开始传承之旅</button>
+                </div>
+            `;
+        }
+
+        // 渲染主场景
+        function renderMainScene(passageDiv) {
+            // 生成随机任务
+            generateTasks();
+            
+            const taskCount = state.tasks.filter(t => !t.completed).length;
+            const taskBadge = taskCount > 0 ? `<span class="badge">${taskCount}</span>` : '';
+            
+            // 检查是否解锁宗祠
+            const ancestorHallBtn = state.unlockedFeatures.includes("ancestor-hall") 
+                ? `<button onclick="goto('ancestor-hall')">宗祠</button>` 
+                : '';
+            
+            passageDiv.innerHTML = `
+                <div class="panel">
+                    <h3>主场景</h3>
+                    <div class="btn-group">
+                        <button onclick="goto('kitchen')">厨房</button>
+                        <button onclick="goto('market')">市集</button>
+                        <button onclick="goto('tasks')">
+                            家族任务${taskBadge}
+                        </button>
+                    </div>
+                    <button onclick="takeCareMother()">照顾母亲</button>
+                    <button onclick="visitNeighbor()">拜访邻居</button>
+                    ${ancestorHallBtn}
+                    <button onclick="goto('start')">返回开始</button>
+                </div>
+            `;
+        }
+
+        // 渲染厨房
+        function renderKitchen(passageDiv) {
+            passageDiv.innerHTML = `
+                <div class="panel">
+                    <h3>厨房</h3>
+                    <button onclick="cookRice()" ${state.inventory.rice < 1 ? 'disabled' : ''}>
+                        煮饭 (消耗1斤米，+3孝心值)
+                    </button>
+                    <button onclick="cookFish()" ${state.inventory.fish < 1 ? 'disabled' : ''}>
+                        蒸鱼 (消耗1条鱼，+5孝心值)
+                    </button>
+                    <button onclick="goto('MainScene')">返回</button>
+                </div>
+            `;
+        }
+
+        // 渲染市集
+        function renderMarket(passageDiv) {
+            passageDiv.innerHTML = `
+                <div class="panel">
+                    <h3>市集</h3>
+                    <button onclick="buyRice()">买米 (2银元/斤)</button>
+                    <button onclick="buyFish()">买鱼 (3银元/条)</button>
+                    <button onclick="sellCraft()" ${state.inventory.craft < 1 ? 'disabled' : ''}>
+                        出售手工艺品 (5银元/件)
+                    </button>
+                    <button onclick="donate()">向宗祠捐款 (10银元，+15孝心值)</button>
+                    <button onclick="goto('MainScene')">返回</button>
+                </div>
+            `;
+        }
+
+        // 渲染宗祠
+        function renderAncestorHall(passageDiv) {
+            passageDiv.innerHTML = `
+                <div class="panel">
+                    <h3>宗祠</h3>
+                    <p>这里供奉着家族的祖先牌位。</p>
+                    <button onclick="prayAncestor()">祭拜祖先 (+5孝心值)</button>
+                    <button onclick="expandAncestorHall()">扩建宗祠 (50银元，+20孝心值)</button>
+                    <button onclick="goto('MainScene')">返回</button>
+                </div>
+            `;
+        }
+
+        // 渲染任务面板
+        function renderTasks(passageDiv) {
+            const tasksHtml = state.tasks
+                .map(task => `
+                    <div class="task ${task.completed ? 'opacity-50' : ''}">
+                        <h4>${task.title}</h4>
+                        <p>${task.description}</p>
+                        ${task.completed 
+                            ? `<div class="success">已完成：获得${task.reward}孝心值和${task.silverReward}银元</div>` 
+                            : `<button onclick="completeTask('${task.id}')">完成任务 (+${task.reward}孝心值，+${task.silverReward}银元)</button>`
+                        }
+                    </div>
+                `)
+                .join('');
+                
+            passageDiv.innerHTML = `
+                <div class="panel">
+                    <h3>家族任务</h3>
+                    ${tasksHtml || '<p>暂无任务</p>'}
+                    <button onclick="goto('MainScene')">返回</button>
+                </div>
+            `;
+        }
+
+        // 照顾母亲
+        function takeCareMother() {
+            if (state.silver >= 2) {
+                state.silver -= 2;
+                state.filial += 10;
+                showAlert("success", "你精心照料了母亲，孝心值增加10点。");
+                updateUI();
+            } else {
+                showAlert("error", "你没有足够的银元来照顾母亲！");
+            }
+        }
+
+        // 煮饭
+        function cookRice() {
+            if (state.inventory.rice >= 1) {
+                state.inventory.rice -= 1;
+                state.filial += 3;
+                showAlert("success", "你煮了一锅米饭，孝心值增加3点。");
+                updateUI();
+            } else {
+                showAlert("error", "你没有足够的大米！");
+            }
+        }
+
+        // 蒸鱼
+        function cookFish() {
+            if (state.inventory.fish >= 1) {
+                state.inventory.fish -= 1;
+                state.filial += 5;
+                showAlert("success", "你蒸了一条鱼，家人赞不绝口。孝心值增加5点。");
+                updateUI();
+            } else {
+                showAlert("error", "你没有足够的鱼！");
+            }
+        }
+
+        // 买米
+        function buyRice() {
+            if (state.silver >= 2) {
+                state.silver -= 2;
+                state.inventory.rice += 1;
+                showAlert("success", "你购买了1斤米，花费2银元。");
+                updateUI();
+            } else {
+                showAlert("error", "你没有足够的银元！");
+            }
+        }
+
+        // 买鱼
+        function buyFish() {
+            if (state.silver >= 3) {
+                state.silver -= 3;
+                state.inventory.fish += 1;
+                showAlert("success", "你购买了1条鱼，花费3银元。");
+                updateUI();
+            } else {
+                showAlert("error", "你没有足够的银元！");
+            }
+        }
+
+        // 出售手工艺品
+        function sellCraft() {
+            if (state.inventory.craft >= 1) {
+                state.inventory.craft -= 1;
+                state.silver += 5;
+                showAlert("success", "你出售了一件手工艺品，获得5银元。");
+                updateUI();
+            } else {
+                showAlert("error", "你没有手工艺品可出售！");
+            }
+        }
+
+        // 向宗祠捐款
+        function donate() {
+            if (state.silver >= 10) {
+                state.silver -= 10;
+                state.filial += 15;
+                showAlert("success", "你向宗祠捐款10银元，孝心值增加15点。");
+                updateUI();
+            } else {
+                showAlert("error", "你没有足够的银元！");
+            }
+        }
+
+        // 拜访邻居
+        function visitNeighbor() {
+            const randomGain = Math.floor(Math.random() * 7) + 3; // 3-9点孝心值
+            const randomSilver = Math.floor(Math.random() * 4) + 1; // 1-4银元
+            
+            state.filial += randomGain;
+            state.silver += randomSilver;
+            
+            showAlert("success", `你拜访了邻居，获得${randomGain}点孝心值和${randomSilver}银元。`);
+            updateUI();
+        }
+
+        // 祭拜祖先
+        function prayAncestor() {
+            state.filial += 5;
+            showAlert("success", "你虔诚地祭拜了祖先，孝心值增加5点。");
+            updateUI();
+        }
+
+        // 扩建宗祠
+        function expandAncestorHall() {
+            if (state.silver >= 50) {
+                state.silver -= 50;
+                state.filial += 20;
+                showAlert("success", "你扩建了宗祠，家族声誉提升，孝心值增加20点。");
+                updateUI();
+            } else {
+                showAlert("error", "你没有足够的银元扩建宗祠！");
+            }
+        }
+
+        // 生成随机任务
+        function generateTasks() {
+            // 最多同时存在3个任务
+            if (state.tasks.filter(t => !t.completed).length >= 3) return;
+            
+            // 有50%概率生成新任务
+            if (Math.random() < 0.5) {
+                const baseTasks = [
+                    {
+                        id: "task1",
+                        title: "整理族谱",
+                        description: "家族族谱需要整理，这将帮助后人了解家族历史。",
+                        reward: 12,
+                        silverReward: 5,
+                        completed: false
+                    },
+                    {
+                        id: "task2",
+                        title: "修缮祖坟",
+                        description: "祖坟年久失修，需要出资修缮以表孝心。",
+                        reward: 18,
+                        silverReward: 8,
+                        completed: false
+                    },
+                    {
+                        id: "task3",
+                        title: "教导晚辈",
+                        description: "教导家族中的晚辈学习传统礼仪。",
+                        reward: 10,
+                        silverReward: 3,
+                        completed: false
+                    },
+                    {
+                        id: "task4",
+                        title: "收集家训",
+                        description: "收集家族中的古老家训，传承家族精神。",
+                        reward: 15,
+                        silverReward: 6,
+                        completed: false
+                    }
+                ];
+                
+                // 过滤已完成的任务
+                const availableTasks = baseTasks.filter(t => 
+                    !state.tasks.some(st => st.id === t.id && st.completed)
+                );
+                
+                if (availableTasks.length > 0) {
+                    const newTask = availableTasks[Math.floor(Math.random() * availableTasks.length)];
+                    // 避免重复添加相同任务
+                    if (!state.tasks.some(t => t.id === newTask.id && !t.completed)) {
+                        state.tasks.push({...newTask});
+                    }
+                }
+            }
+        }
+
+        // 完成任务
+        function completeTask(taskId) {
+            const task = state.tasks.find(t => t.id === taskId);
+            if (task && !task.completed) {
+                task.completed = true;
+                state.filial += task.reward;
+                state.silver += task.silverReward;
+                
+                showAlert("success", `你完成了任务 "${task.title}"，获得${task.reward}点孝心值和${task.silverReward}银元！`);
+                updateUI();
+                
+                // 刷新任务面板
+                if (state.scene === "tasks") {
+                    renderTasks(document.getElementById("passage"));
+                }
+            }
+        }
+
+        // 触发随机事件
+        function triggerRandomEvent() {
+            state.lastRandomEvent = state.days;
+            
+            const events = [
+                {
+                    type: "positive",
+                    title: "邻里称赞",
+                    description: "你的孝心感动了邻里，大家纷纷称赞。",
+                    effect: () => {
+                        const gain = Math.floor(Math.random() * 8) + 3; // 3-10
+                        state.filial += gain;
+                        return `孝心值 +${gain}`;
+                    }
+                },
+                {
+                    type: "positive",
+                    title: "祖先庇佑",
+                    description: "祭祖显灵，祖先保佑家族平安。",
+                    effect: () => {
+                        const gain = Math.floor(Math.random() * 10) + 5; // 5-14
+                        state.silver += gain;
+                        return `银元 +${gain}`;
+                    }
+                },
+                {
+                    type: "negative",
+                    title: "自然灾害",
+                    description: "突发洪水，冲毁了部分庄稼。",
+                    effect: () => {
+                        const loss = Math.min(2, state.inventory.rice);
+                        state.inventory.rice = Math.max(0, state.inventory.rice - loss);
+                        return loss > 0 ? `损失${loss}斤大米` : "幸无损失";
+                    }
+                },
+                {
+                    type: "negative",
+                    title: "家族纷争",
+                    description: "家族内部发生纷争，影响了家族声誉。",
+                    effect: () => {
+                        const loss = Math.floor(Math.random() * 8) + 3; // 3-10
+                        state.filial -= loss;
+                        return `孝心值 -${loss}`;
+                    }
+                },
+                {
+                    type: "neutral",
+                    title: "商机出现",
+                    description: "偶然发现一个小商机。",
+                    effect: () => {
+                        if (state.silver >= 4) {
+                            const cost = 4;
+                            const profit = Math.floor(Math.random() * 12) + 6; // 6-17
+                            state.silver -= cost;
+                            state.silver += profit;
+                            return `投资${cost}银元，获得${profit}银元回报`;
+                        } else {
+                            return "你没有足够的银元投资";
+                        }
+                    }
+                }
+            ];
+            
+            const randomEvent = events[Math.floor(Math.random() * events.length)];
+            const effectText = randomEvent.effect();
+            
+            const alertType = randomEvent.type === "positive" ? "success" : 
+                             randomEvent.type === "negative" ? "error" : "warning";
+                             
+            showAlert(alertType, `${randomEvent.title}<br>${randomEvent.description}<br>${effectText}`);
+            updateUI();
+        }
+
+        // 显示提示
+        function showAlert(type, message) {
+            const alertDiv = document.createElement("div");
+            alertDiv.className = `alert ${type}`;
+            alertDiv.innerHTML = message;
+            
+            const storyDiv = document.getElementById("story");
+            storyDiv.insertBefore(alertDiv, storyDiv.firstChild);
+            
+            // 3秒后移除提示
+            setTimeout(() => {
+                alertDiv.style.opacity = "0";
+                setTimeout(() => alertDiv.remove(), 300);
+            }, 5000);
+        }
+        
+        // 初始化显示
+        updateUI();
+    </script>
+</body>
+</html>
